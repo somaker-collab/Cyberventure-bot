@@ -1,36 +1,28 @@
-import os
-import json
 import requests
 from flask import Flask, request
-from datetime import datetime
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-# ============================================================
-# CONFIGURATION – Replace with your actual values
-# ============================================================
+# ==================== CONFIGURATION ====================
+# Replace these with your actual tokens before deploying
 FACEBOOK_ACCESS_TOKEN = "YOUR_FACEBOOK_PAGE_ACCESS_TOKEN"
 VERIFY_TOKEN = "YOUR_VERIFY_TOKEN"
 
-# OpenRouter API
+# OpenRouter API (already provided)
 OPENROUTER_API_KEY = "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"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-# Facebook Graph API base URL
-FB_API_URL = "https://graph.facebook.com/v18.0/me/messages"
+# Facebook Graph API endpoint for sending messages
+FB_MESSAGES_URL = "https://graph.facebook.com/v18.0/me/messages"
 
-# ============================================================
-# CYBER VENTURE DATA
-# ============================================================
-CYBER_VENTURE_DATA = {
-    "company_name": "Cyber Venture",
+# ==================== CYBER VENTURE DATA ====================
+COMPANY = {
+    "name": "Cyber Venture",
     "tagline": "AI-Powered Cybersecurity Startup",
-    "contact_email": "cyberventuressupport@proton.me",
+    "email": "cyberventuressupport@proton.me",
     "website": "bugfinder-pvyupdjc.fly.dev",
-
-    "description": "Cyber Venture is an AI-powered cybersecurity startup focused on proactive digital protection, vulnerability intelligence, and modern cyber defense solutions.",
-
     "services": [
         "Vulnerability Assessment",
         "Penetration Testing",
@@ -41,394 +33,326 @@ CYBER_VENTURE_DATA = {
         "Digital Infrastructure Protection",
         "Security Awareness & Risk Analysis"
     ],
-
-    "revenue_model": """Cyber Venture generates revenue through multiple streams:
-1. Cybersecurity consulting and assessment fees
-2. Ongoing security monitoring subscriptions
-3. Penetration testing service contracts
-4. AI-powered security tool licensing
-5. Vulnerability research and reporting
-6. Security training and awareness programs
-
-Companies pay for our proactive security services to prevent cyber attacks before they happen.""",
-
-    "competitive_advantage": """What makes Cyber Venture different:
-• Prevention-first approach – we stop attacks before they happen
-• AI-native platform – built with AI from ground up
-• Continuous monitoring and adaptation
-• Transparent reporting and trust-based relationships
-• Research-driven vulnerability intelligence
-• Customized security solutions, not one-size-fits-all""",
-
-    "investor_value": "The cybersecurity market exceeds $200B and grows 12-15% annually. Cyber Venture's AI-powered, prevention-first approach positions us perfectly in this expanding market with recurring revenue streams.",
-
+    "revenue_model": (
+        "Cyber Venture generates revenue through multiple streams:\n"
+        "1. Cybersecurity consulting and assessment fees\n"
+        "2. Ongoing security monitoring subscriptions\n"
+        "3. Penetration testing service contracts\n"
+        "4. AI-powered security tool licensing\n"
+        "5. Vulnerability research and reporting\n"
+        "6. Security training and awareness programs\n\n"
+        "Companies pay for our proactive security services to prevent cyber attacks before they happen."
+    ),
+    "competitive_advantage": (
+        "What makes Cyber Venture different:\n"
+        "• Prevention-first approach – we stop attacks before they happen\n"
+        "• AI-native platform – built with AI from ground up\n"
+        "• Continuous monitoring and adaptation\n"
+        "• Transparent reporting and trust-based relationships\n"
+        "• Research-driven vulnerability intelligence\n"
+        "• Customized security solutions, not one-size-fits-all"
+    ),
+    "investor_value": (
+        "The cybersecurity market exceeds $200B and grows 12-15% annually. "
+        "Cyber Venture's AI-powered, prevention-first approach positions us perfectly "
+        "in this expanding market with recurring revenue streams."
+    ),
+    "description": (
+        "Cyber Venture is an AI-powered cybersecurity startup focused on proactive digital protection, "
+        "vulnerability intelligence, and modern cyber defense solutions."
+    ),
     "mission": "Helping businesses stay protected through prevention, intelligence, and trust.",
-
-    "vision": "To become a recognized cybersecurity technology brand known for innovation and intelligent security solutions.",
-
-    "current_phase": "Early growth phase – building credibility, visibility, and investor confidence.",
+    "vision": "To become a recognized cybersecurity technology brand known for innovation and intelligent security solutions."
 }
 
-# ============================================================
-# WEBSITE CONTENT CACHE
-# ============================================================
-website_content_cache = {
-    "content": None,
-    "last_fetched": None
-}
+# ==================== WEBSITE CACHE ====================
+_website_cache = {"content": None, "last_fetched": None}
 
 def fetch_website_content():
-    """Fetch and parse content from Cyber Venture website."""
+    """Fetch and extract text from the Cyber Venture website (cached for 1 hour)."""
+    now = datetime.now()
+    if _website_cache["content"] and _website_cache["last_fetched"]:
+        if (now - _website_cache["last_fetched"]) < timedelta(hours=1):
+            return _website_cache["content"]
+
     try:
-        if website_content_cache["content"] and website_content_cache["last_fetched"]:
-            time_diff = datetime.now() - website_content_cache["last_fetched"]
-            if time_diff.seconds < 3600:
-                return website_content_cache["content"]
-
-        url = f"https://{CYBER_VENTURE_DATA['website']}"
-        response = requests.get(url, timeout=10, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        url = f"https://{COMPANY['website']}"
+        resp = requests.get(url, timeout=10, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
         })
-
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for script in soup(["script", "style"]):
-                script.decompose()
-            text_content = soup.get_text(separator='\n', strip=True)
-            lines = [line.strip() for line in text_content.split('\n') if line.strip()]
-            clean_content = '\n'.join(lines)
-
-            website_content_cache["content"] = clean_content
-            website_content_cache["last_fetched"] = datetime.now()
-            return clean_content
+        if resp.status_code == 200:
+            soup = BeautifulSoup(resp.text, "html.parser")
+            for tag in soup(["script", "style"]):
+                tag.decompose()
+            text = soup.get_text(separator="\n", strip=True)
+            lines = [line.strip() for line in text.split("\n") if line.strip()]
+            clean = "\n".join(lines)
+            _website_cache["content"] = clean
+            _website_cache["last_fetched"] = now
+            return clean
         else:
-            print(f"Failed to fetch website: {response.status_code}")
+            print(f"Website fetch failed with status {resp.status_code}")
             return None
     except Exception as e:
-        print(f"Error fetching website: {str(e)}")
+        print(f"Website fetch error: {e}")
         return None
 
-# ============================================================
-# RELEVANCE CHECKING
-# ============================================================
-CYBER_SECURITY_TOPICS = [
-    'xss', 'csrf', 'sql injection', 'ddos', 'ransomware', 'malware', 'phishing',
-    'vulnerability', 'exploit', 'zero day', 'penetration testing', 'firewall',
-    'encryption', 'authentication', 'authorization', 'oauth', 'ssl', 'tls',
-    'security audit', 'risk assessment', 'compliance', 'gdpr', 'hipaa',
-    'cyber attack', 'data breach', 'incident response', 'forensics',
-    'bug bounty', 'ethical hacking', 'red team', 'blue team', 'threat',
-    'owasp', 'nist', 'iso 27001', 'soc', 'siem', 'endpoint security',
-
-    # business / investment
-    'invest', 'investor', 'funding', 'revenue', 'profit', 'growth', 'market',
-    'business model', 'startup', 'pitch', 'valuation', 'equity', 'stake',
-    'roi', 'return', 'money', 'earn', 'client', 'customer', 'pricing',
-    'cost', 'price', 'subscription', 'contract', 'partnership',
-
-    # company specific
-    'cyber venture', 'cyberventure', 'company', 'service', 'offer',
-    'different', 'unique', 'advantage', 'why', 'who', 'what', 'how',
-    'about', 'mission', 'vision', 'team', 'founder', 'contact',
-    'email', 'website', 'demo', 'trial', 'consultation',
-
-    # greetings
-    'hi', 'hello', 'hey', 'namaste', 'good morning', 'good afternoon',
-    'good evening', 'greetings', 'sup', 'yo', 'howdy'
-]
-
-IRRELEVANT_TOPICS = [
-    'mathematics', 'physics', 'chemistry', 'biology', 'science branches',
-    'astronomy', 'geology', 'botany', 'zoology', 'movie', 'song', 'music',
-    'game', 'sport', 'cricket', 'football', 'hollywood', 'bollywood',
-    'actor', 'actress', 'celebrity', 'girlfriend', 'boyfriend', 'dating',
-    'marriage', 'relationship', 'love', 'friend', 'family', 'personal',
-    'weather', 'news', 'politics', 'religion', 'joke', 'funny',
-    'recipe', 'cooking', 'food', 'restaurant', 'history', 'geography',
-    'literature', 'poetry', 'art', 'philosophy', 'maths', 'algebra',
-    'calculus', 'trigonometry'
-]
-
-def is_relevant_to_business(message):
-    """Determine if message is relevant to Cyber Venture business."""
-    message_lower = message.lower().strip()
-
-    greetings = ['hi', 'hello', 'hey', 'namaste', 'good morning', 'good afternoon', 'good evening', 'greetings', 'sup', 'yo', 'howdy']
-    if message_lower in greetings or any(message_lower.startswith(g) for g in greetings):
-        return True, "greeting"
-
-    for topic in IRRELEVANT_TOPICS:
-        if topic in message_lower:
-            business_terms = ['cyber', 'security', 'invest', 'revenue', 'business', 'company', 'venture']
-            if any(term in message_lower for term in business_terms):
-                return True, "mixed_business"
-            return False, "irrelevant"
-
-    for topic in CYBER_SECURITY_TOPICS:
-        if topic in message_lower:
-            return True, "relevant"
-
-    question_patterns = ['what is', 'how to', 'explain', 'tell me about', 'define']
-    if any(pattern in message_lower for pattern in question_patterns):
-        tech_terms = ['security', 'cyber', 'hack', 'attack', 'vulnerability', 'tech', 'computer', 'network', 'web', 'app', 'data', 'code']
-        if any(term in message_lower for term in tech_terms):
-            return True, "tech_question"
-
-    if len(message_lower.split()) > 8:
-        return True, "long_message"
-
-    return False, "unknown"
-
-def get_website_info_for_query(query):
-    """Search website content for relevant information."""
-    website_content = fetch_website_content()
-    if not website_content:
+def search_website(query):
+    """Find lines from the website that contain the query keywords."""
+    content = fetch_website_content()
+    if not content:
         return None
-
     keywords = query.lower().split()
-    relevant_lines = []
-    for line in website_content.split('\n'):
-        if any(keyword in line.lower() for keyword in keywords):
-            relevant_lines.append(line)
+    matches = []
+    for line in content.split("\n"):
+        if any(kw in line.lower() for kw in keywords):
+            matches.append(line)
+    return "\n".join(matches[:10]) if matches else None
 
-    if relevant_lines:
-        return '\n'.join(relevant_lines[:10])
-    return None
+# ==================== RELEVANCE DETECTION ====================
+RELEVANT_KEYWORDS = [
+    "cyber", "security", "hack", "vulnerability", "xss", "csrf", "sql injection",
+    "ddos", "ransomware", "malware", "phishing", "exploit", "zero day",
+    "penetration test", "firewall", "encryption", "threat", "incident response",
+    "bug bounty", "ethical hacking", "owasp", "nist", "iso 27001",
+    "invest", "investor", "funding", "revenue", "profit", "growth", "market",
+    "business model", "startup", "pitch", "valuation", "equity", "roi",
+    "money", "earn", "client", "customer", "pricing", "subscription",
+    "partnership", "cyber venture", "cyberventure", "company", "service",
+    "different", "unique", "advantage", "about", "contact", "email", "demo",
+    "greetings", "hi", "hello", "hey", "namaste", "good morning", "good afternoon"
+]
 
-# ============================================================
-# AI RESPONSE HANDLING
-# ============================================================
-def create_system_prompt(website_context=""):
-    """Create context-aware system prompt."""
+OFF_TOPIC_KEYWORDS = [
+    "mathematics", "physics", "chemistry", "biology", "science branches",
+    "movie", "song", "music", "game", "sport", "cricket", "football",
+    "hollywood", "celebrity", "dating", "marriage", "relationship",
+    "weather", "news", "politics", "joke", "funny", "recipe", "food",
+    "restaurant", "history", "geography", "literature", "poetry", "art",
+    "philosophy", "maths", "algebra", "calculus", "trigonometry"
+]
+
+def message_is_relevant(text):
+    """Return True if the message is related to Cyber Venture or cybersecurity."""
+    lower = text.lower().strip()
+    # Allow simple greetings immediately
+    greetings = ["hi", "hello", "hey", "namaste", "good morning", "good afternoon", "good evening"]
+    if lower in greetings or any(lower.startswith(g) for g in greetings):
+        return True
+
+    # Reject messages containing clearly off-topic keywords,
+    # but if they also contain business terms, allow them.
+    for bad in OFF_TOPIC_KEYWORDS:
+        if bad in lower:
+            business = ["cyber", "security", "invest", "revenue", "business", "company", "venture"]
+            if not any(b in lower for b in business):
+                return False
+            else:
+                return True
+
+    # Check for any relevant keyword
+    for kw in RELEVANT_KEYWORDS:
+        if kw in lower:
+            return True
+
+    # If message is long and contains tech/business words, consider it relevant
+    if len(lower.split()) > 5:
+        tech = ["security", "cyber", "hack", "attack", "vulnerability", "computer", "network", "app", "data"]
+        if any(t in lower for t in tech):
+            return True
+
+    return False
+
+# ==================== AI RESPONSE ====================
+def build_system_prompt(extra_website_info=""):
+    """Create the system prompt for the AI, optionally including website data."""
     website_section = ""
-    if website_context:
-        website_section = f"\nWEBSITE INFORMATION:\n{website_context}\n"
+    if extra_website_info:
+        website_section = f"\nRELEVANT WEBSITE CONTENT:\n{extra_website_info}\n"
 
-    system_prompt = f"""You are an AI representative for Cyber Venture, an AI-powered cybersecurity startup.
+    prompt = f"""You are a professional assistant for Cyber Venture, an AI-powered cybersecurity startup.
+Use ONLY the information provided below to answer. Do NOT make up facts.
 
-CRITICAL RULES:
-1. ONLY answer questions related to cybersecurity, business, technology, and Cyber Venture
-2. For greetings (hi, hello, namaste, etc.): Respond warmly and introduce Cyber Venture's services
-3. For cybersecurity questions (XSS, SQL injection, vulnerabilities, etc.): Answer knowledgeably and connect to Cyber Venture's services
-4. For business questions (revenue, investment, pricing, etc.): Answer based on Cyber Venture data
-5. For questions about what makes Cyber Venture different: Emphasize prevention-first, AI-native approach
-6. If question is about unrelated topics (mathematics, science branches, entertainment, etc.): Politely decline
-7. If you don't know the exact answer: Say "I don't have that specific information right now. Let me forward this to our team. They will get back to you soon at {CYBER_VENTURE_DATA['contact_email']}. Thank you for your patience!"
-8. Use website information when available to provide accurate answers
-9. Always be professional, helpful, and focused on cybersecurity/business
-
-COMPANY INFORMATION:
-Name: {CYBER_VENTURE_DATA['company_name']}
-Email: {CYBER_VENTURE_DATA['contact_email']}
-Website: {CYBER_VENTURE_DATA['website']}
-Services: {', '.join(CYBER_VENTURE_DATA['services'])}
-Revenue Model: {CYBER_VENTURE_DATA['revenue_model']}
-Competitive Advantage: {CYBER_VENTURE_DATA['competitive_advantage']}
+COMPANY DETAILS:
+- Name: {COMPANY['name']}
+- Email: {COMPANY['email']}
+- Website: {COMPANY['website']}
+- Services: {', '.join(COMPANY['services'])}
+- Revenue Model: {COMPANY['revenue_model']}
+- Competitive Advantage: {COMPANY['competitive_advantage']}
+- Description: {COMPANY['description']}
+- Mission: {COMPANY['mission']}
+- Vision: {COMPANY['vision']}
 
 {website_section}
 
-RESPONSE FORMAT:
-- For valid questions: Provide helpful, accurate answers
-- For greetings: Warm welcome + introduce Cyber Venture
-- For unknown answers: Forward to team message
-- For irrelevant topics: "I'm specialized in cybersecurity and business topics related to Cyber Venture. I can help you with questions about cybersecurity, our services, investment opportunities, or how we protect businesses. How can I assist you today?"
+RULES:
+1. Only answer if the question is about Cyber Venture, cybersecurity, or business/investment.
+2. For greetings, respond warmly and briefly introduce the company.
+3. For cybersecurity questions (XSS, SQL injection, etc.), explain the concept and mention how Cyber Venture helps.
+4. For business questions (revenue, investment, pricing), use the exact data above.
+5. For questions like "what makes you different", use the Competitive Advantage info.
+6. If the question is off-topic (e.g., mathematics, movies), reply: "I'm here to discuss Cyber Venture and cybersecurity topics only. How can I help you in that area?"
+7. If you don't know the answer, reply: "I don't have that specific information. Please email us at {COMPANY['email']} and our team will help you."
+
+Always be concise and professional. Do not add information not provided above.
 """
-    return system_prompt
+    return prompt
 
-def get_ai_response(user_message, user_id=None):
-    """Get AI response with proper context handling."""
+def get_ai_reply(user_message):
+    """Call OpenRouter API and return the AI response."""
+    # First, search website for relevant info
+    website_info = search_website(user_message)
+
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "HTTP-Referer": f"https://{COMPANY['website']}",
+        "Content-Type": "application/json"
+    }
+
+    data = {
+        "model": "openai/gpt-3.5-turbo",  # Cheaper and faster; change to gpt-4 if needed
+        "messages": [
+            {"role": "system", "content": build_system_prompt(website_info)},
+            {"role": "user", "content": user_message}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 600
+    }
+
     try:
-        is_relevant, category = is_relevant_to_business(user_message)
-        if not is_relevant:
-            return get_rejection_message()
-
-        website_context = get_website_info_for_query(user_message)
-
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "HTTP-Referer": f"https://{CYBER_VENTURE_DATA['website']}",
-            "Content-Type": "application/json",
-            "X-Title": "Cyber Venture Assistant"
-        }
-
-        system_prompt = create_system_prompt(website_context)
-
-        if category == "greeting":
-            system_prompt += "\n\nThis is a greeting. Respond warmly and introduce Cyber Venture's cybersecurity services."
-        elif any(term in user_message.lower() for term in ['revenue', 'earn', 'money', 'profit', 'income']):
-            system_prompt += f"\n\nThis is a revenue question. Use this exact revenue information: {CYBER_VENTURE_DATA['revenue_model']}"
-        elif any(term in user_message.lower() for term in ['different', 'unique', 'advantage', 'why you', 'what makes']):
-            system_prompt += f"\n\nThis is a competitive advantage question. Use this exact information: {CYBER_VENTURE_DATA['competitive_advantage']}"
-        elif any(term in user_message.lower() for term in ['xss', 'csrf', 'sql injection', 'vulnerability', 'attack']):
-            system_prompt += "\n\nThis is a cybersecurity technical question. Answer it knowledgeably and mention how Cyber Venture helps with such security issues."
-
-        data = {
-            "model": "openai/gpt-4",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
-            "temperature": 0.7,
-            "max_tokens": 800,
-            "top_p": 0.9,
-            "frequency_penalty": 0.3,
-            "presence_penalty": 0.3
-        }
-
-        response = requests.post(OPENROUTER_API_URL, headers=headers, json=data)
-
-        if response.status_code == 200:
-            result = response.json()
-            ai_response = result['choices'][0]['message']['content']
-
-            if any(phrase in ai_response.lower() for phrase in ["i don't know", "i don't have", "i'm not sure", "i cannot"]):
-                ai_response = f"I don't have that specific information right now. Let me forward this to our team at {CYBER_VENTURE_DATA['contact_email']}. They will get back to you soon. Thank you for your patience! 🙏"
-
-            log_interaction(user_id, user_message, ai_response, category)
-            return ai_response
+        resp = requests.post(OPENROUTER_API_URL, headers=headers, json=data, timeout=15)
+        if resp.status_code == 200:
+            reply = resp.json()["choices"][0]["message"]["content"]
+            # Safety check – if AI says it doesn't know, return a helpful fallback
+            if any(phrase in reply.lower() for phrase in ["i don't know", "i don't have", "i'm not sure"]):
+                return f"I don't have that information yet. Please email us at {COMPANY['email']} and our team will get back to you soon."
+            return reply
         else:
-            return get_fallback_response(user_message, category)
-
+            print(f"OpenRouter error: {resp.status_code} {resp.text}")
+            return None
     except Exception as e:
-        print(f"Error: {str(e)}")
-        return get_fallback_response(user_message, "error")
+        print(f"OpenRouter exception: {e}")
+        return None
 
-def get_rejection_message():
-    """Message for irrelevant topics."""
-    return "I'm specialized in cybersecurity and business topics related to Cyber Venture. I can help you with questions about cybersecurity (like XSS, SQL injection, vulnerabilities), our services, investment opportunities, or how we protect businesses. How can I assist you today?"
+def get_fallback_response(user_message):
+    """Pre-defined responses when the AI call fails."""
+    lower = user_message.lower()
 
-def get_fallback_response(user_message, category):
-    """Fallback responses based on category."""
-    message_lower = user_message.lower()
+    # Greetings
+    if any(greeting in lower for greeting in ["hi", "hello", "hey", "namaste"]):
+        return f"Hello! 👋 Welcome to Cyber Venture, your AI-powered cybersecurity partner. We offer vulnerability assessment, penetration testing, and AI-driven threat detection. How can I help secure your business today?"
 
-    if category == "greeting":
-        return f"Hello! 👋 Welcome to Cyber Venture – your AI-powered cybersecurity partner. We help businesses prevent cyber attacks through vulnerability assessment, penetration testing, and AI-driven threat detection. How can I help secure your business today?"
+    # Revenue
+    if any(word in lower for word in ["revenue", "earn", "money", "profit", "income"]):
+        return f"💰 {COMPANY['revenue_model']}\n\n📧 For detailed financials: {COMPANY['email']}"
 
-    elif any(word in message_lower for word in ['revenue', 'earn', 'money', 'profit', 'income', 'business model']):
-        return f"💰 **How Cyber Venture Earns Revenue**\n\n{CYBER_VENTURE_DATA['revenue_model']}\n\n📧 For detailed financial information: {CYBER_VENTURE_DATA['contact_email']}"
+    # Why different
+    if any(phrase in lower for phrase in ["different", "unique", "advantage", "why you", "what makes"]):
+        return f"🛡️ {COMPANY['competitive_advantage']}\n\n📧 Learn more: {COMPANY['email']}"
 
-    elif any(word in message_lower for word in ['different', 'unique', 'advantage', 'why you', 'what makes']):
-        return f"🛡️ **What Makes Cyber Venture Different**\n\n{CYBER_VENTURE_DATA['competitive_advantage']}\n\n📧 Learn more: {CYBER_VENTURE_DATA['contact_email']}"
+    # Investment
+    if any(word in lower for word in ["invest", "investor", "funding", "pitch"]):
+        return f"🚀 {COMPANY['investor_value']}\n\n📧 For pitch deck: {COMPANY['email']}"
 
-    elif any(word in message_lower for word in ['invest', 'investor', 'funding', 'pitch']):
-        return f"🚀 **Investment Opportunity**\n\n{CYBER_VENTURE_DATA['investor_value']}\n\n📧 For pitch deck and details: {CYBER_VENTURE_DATA['contact_email']}"
+    # Technical cybersecurity
+    if any(term in lower for term in ["xss", "csrf", "sql injection", "vulnerability", "attack", "hack"]):
+        return f"That's a great cybersecurity question! At Cyber Venture we specialize in preventing such threats. For a detailed technical discussion, please email {COMPANY['email']} and our experts will help you."
 
-    elif any(word in message_lower for word in ['xss', 'csrf', 'sql', 'injection', 'vulnerability', 'attack', 'hack', 'exploit']):
-        return f"I can help explain that cybersecurity concept! However, for detailed technical discussions, it would be better to connect directly. Please email us at {CYBER_VENTURE_DATA['contact_email']} and our security experts will provide comprehensive information about how Cyber Venture addresses these threats."
+    # Default
+    return f"I don't have that specific information. Please email us at {COMPANY['email']} and our team will assist you."
 
-    else:
-        return f"I don't have that specific information right now. Let me forward this to our team at {CYBER_VENTURE_DATA['contact_email']}. They will get back to you soon. Thank you for your patience! 🙏"
-
-def log_interaction(user_id, user_message, bot_response, category):
-    """Log interactions with category."""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{timestamp}] User:{user_id} | Category:{category} | Message:{user_message[:100]}")
-
-# ============================================================
-# FACEBOOK MESSAGE SENDING (Direct API)
-# ============================================================
-def send_facebook_message(recipient_id, message_text):
-    """Send a text message via Facebook Graph API."""
-    url = FB_API_URL
+# ==================== FACEBOOK MESSAGING ====================
+def send_fb_message(recipient_id, text):
+    """Send a text message to a Facebook user."""
     params = {"access_token": FACEBOOK_ACCESS_TOKEN}
     payload = {
         "recipient": {"id": recipient_id},
-        "message": {"text": message_text}
+        "message": {"text": text}
     }
-    response = requests.post(url, params=params, json=payload)
-    if response.status_code != 200:
-        print(f"Failed to send message: {response.text}")
+    try:
+        resp = requests.post(FB_MESSAGES_URL, params=params, json=payload, timeout=10)
+        if resp.status_code != 200:
+            print(f"FB send error: {resp.status_code} {resp.text}")
+    except Exception as e:
+        print(f"FB send exception: {e}")
 
-def send_facebook_action(recipient_id, action):
-    """Send typing indicator or mark seen."""
-    url = FB_API_URL
+def send_typing_on(recipient_id):
+    """Send typing indicator."""
     params = {"access_token": FACEBOOK_ACCESS_TOKEN}
     payload = {
         "recipient": {"id": recipient_id},
-        "sender_action": action
+        "sender_action": "typing_on"
     }
-    requests.post(url, params=params, json=payload)
+    try:
+        requests.post(FB_MESSAGES_URL, params=params, json=payload, timeout=5)
+    except Exception:
+        pass
 
-# ============================================================
-# FACEBOOK WEBHOOK ROUTES
-# ============================================================
-@app.route('/webhook', methods=['GET'])
-def verify_webhook():
+# ==================== WEBHOOK ROUTES ====================
+@app.route("/webhook", methods=["GET"])
+def verify():
     """Facebook webhook verification."""
-    mode = request.args.get('hub.mode')
-    token = request.args.get('hub.verify_token')
-    challenge = request.args.get('hub.challenge')
+    mode = request.args.get("hub.mode")
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge")
+    if mode == "subscribe" and token == VERIFY_TOKEN:
+        return challenge, 200
+    else:
+        return "Verification failed", 403
 
-    if mode and token:
-        if mode == 'subscribe' and token == VERIFY_TOKEN:
-            return challenge, 200
-        else:
-            return "Verification failed", 403
-    return "Cyber Venture Active", 200
-
-@app.route('/webhook', methods=['POST'])
+@app.route("/webhook", methods=["POST"])
 def webhook():
-    """Handle incoming messages."""
+    """Handle incoming Facebook messages."""
     data = request.get_json()
-
-    if data.get('object') == 'page':
-        for entry in data.get('entry', []):
-            for event in entry.get('messaging', []):
-                sender_id = event.get('sender', {}).get('id')
-                if not sender_id:
+    if data.get("object") == "page":
+        for entry in data.get("entry", []):
+            for event in entry.get("messaging", []):
+                sender = event.get("sender", {}).get("id")
+                if not sender:
                     continue
-
-                if event.get('message') and 'text' in event['message']:
-                    user_message = event['message']['text']
-                    handle_message(sender_id, user_message)
-
+                msg = event.get("message")
+                if msg and "text" in msg:
+                    text = msg["text"]
+                    process_message(sender, text)
     return "OK", 200
 
-def handle_message(sender_id, user_message):
-    """Process and respond to message."""
-    print(f"📨 Message: {user_message}")
-    # Send typing indicator
-    send_facebook_action(sender_id, "typing_on")
+def process_message(sender_id, text):
+    """Determine relevance, get response, and send it."""
+    print(f"📨 [{sender_id}] {text}")
 
-    response = get_ai_response(user_message, sender_id)
-
-    # Facebook has a 2000 character limit per message
-    if len(response) > 2000:
-        chunks = [response[i:i+1900] for i in range(0, len(response), 1900)]
-        for chunk in chunks:
-            send_facebook_message(sender_id, chunk)
+    if not message_is_relevant(text):
+        reply = "I'm here to discuss Cyber Venture and cybersecurity topics only. How can I help you in that area?"
     else:
-        send_facebook_message(sender_id, response)
+        reply = get_ai_reply(text)
+        if reply is None:
+            reply = get_fallback_response(text)
 
-    print(f"✅ Responded: {response[:100]}...")
+    # Facebook limits message length to 2000 characters
+    max_len = 2000
+    if len(reply) <= max_len:
+        send_typing_on(sender_id)
+        send_fb_message(sender_id, reply)
+    else:
+        # Split into chunks
+        chunks = [reply[i:i+max_len] for i in range(0, len(reply), max_len)]
+        for chunk in chunks:
+            send_typing_on(sender_id)
+            send_fb_message(sender_id, chunk)
+    print(f"✅ Replied")
 
-@app.route('/')
+# ==================== OTHER ENDPOINTS ====================
+@app.route("/")
 def index():
     return f"""
-    <h1>🛡️ Cyber Venture Chatbot</h1>
-    <p>Status: Active</p>
-    <p>Website: {CYBER_VENTURE_DATA['website']}</p>
-    <p>Email: {CYBER_VENTURE_DATA['contact_email']}</p>
-    <p>Handles: Cybersecurity, Business, Investment queries</p>
-    <p>Rejects: Unrelated topics (math, science, entertainment, etc.)</p>
+    <h1>{COMPANY['name']} Chatbot</h1>
+    <p>Status: Operational</p>
+    <p>Contact: {COMPANY['email']}</p>
     """, 200
 
-@app.route('/health')
+@app.route("/health")
 def health():
-    return {"status": "active", "website": CYBER_VENTURE_DATA['website']}, 200
+    return {"status": "healthy", "company": COMPANY['name']}, 200
 
-@app.route('/refresh_website')
-def refresh_website():
-    """Manually refresh website cache."""
-    website_content_cache["content"] = None
-    content = fetch_website_content()
-    if content:
-        return f"Website refreshed! Content length: {len(content)} chars", 200
-    return "Failed to fetch website", 500
-
-if __name__ == '__main__':
-    print("Cyber Venture Chatbot Starting...")
-    print(f"Website: {CYBER_VENTURE_DATA['website']}")
-    print(f"Contact: {CYBER_VENTURE_DATA['contact_email']}")
-    print("Handles: Cybersecurity + Business queries")
-    
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=False)
