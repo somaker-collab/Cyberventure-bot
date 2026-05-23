@@ -11,8 +11,8 @@ app = Flask(__name__)
 # ============================================================
 # CONFIGURATION - REPLACE THESE WITH YOUR ACTUAL VALUES LATER
 # ============================================================
-FACEBOOK_ACCESS_TOKEN = "YOUR_FACEBOOK_PAGE_ACCESS_TOKEN"  # <-- CHANGE THIS
-VERIFY_TOKEN = "YOUR_VERIFY_TOKEN"                        # <-- CHANGE THIS
+FACEBOOK_ACCESS_TOKEN = "EAFyZA2kjzBnMBRjiNLiN2TwL1vgYZC0NM7zFs7bXrPuCCO5uk7JroEABVrlDKZCr2PLEYWTyalHgPZAWF57WZBBDWkrq0ZCIzMZAFgr72i5oKmdMzzRHR1l7oYtyk1UoRak500srwAQ9RGZBDH8ZAhA0la9f9EcDvvFcbtcYwysc3CkXuJxyciZCYkwVc84ZAzUwutLNDkeuMNYBFixXr5FKNcLE7TM2oPdt3jTbULKIfMZD"  # <-- CHANGE THIS
+VERIFY_TOKEN = "cyber_secure_123"                        # <-- CHANGE THIS
 
 # OpenRouter API (already filled)
 OPENROUTER_API_KEY = "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"
