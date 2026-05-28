@@ -11,7 +11,7 @@ FACEBOOK_ACCESS_TOKEN = "YOUR_FACEBOOK_PAGE_ACCESS_TOKEN"
 VERIFY_TOKEN = "YOUR_VERIFY_TOKEN"
 
 # OpenRouter API (already provided)
-OPENROUTER_API_KEY = "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"
+OPENROUTER_API_KEY = "your_openrouter_apikey"
 OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Facebook Graph API endpoint for sending messages
